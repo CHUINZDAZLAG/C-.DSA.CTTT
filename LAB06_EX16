@@ -1,0 +1,276 @@
+// C++ Implementation of Exercises 1 to 11
+
+#include <iostream>
+#include <vector>
+#include <queue>
+#include <stack>
+#include <unordered_map>
+#include <set>
+#include <climits>
+#include <algorithm>
+
+using namespace std;
+
+class Graph {
+public:
+    int vertices;
+    vector<vector<int>> adjMatrix;
+    vector<vector<pair<int, int>>> adjList; // For weighted graphs
+
+    Graph(int v) : vertices(v) {
+        adjMatrix.resize(v, vector<int>(v, 0));
+        adjList.resize(v);
+    }
+
+    void addEdgeMatrix(int u, int v) {
+        adjMatrix[u][v] = 1;
+        adjMatrix[v][u] = 1; // Remove this line for directed graphs
+    }
+
+    void addEdgeList(int u, int v, int weight = 1) {
+        adjList[u].emplace_back(v, weight);
+        adjList[v].emplace_back(u, weight); // Remove for directed graphs
+    }
+
+    void dfsRecursiveUtil(int v, vector<bool>& visited, vector<int>& traversal) {
+        visited[v] = true;
+        traversal.push_back(v);
+
+        for (auto& neighbor : adjList[v]) {
+            if (!visited[neighbor.first]) {
+                dfsRecursiveUtil(neighbor.first, visited, traversal);
+            }
+        }
+    }
+
+    vector<int> dfsRecursive(int start) {
+        vector<bool> visited(vertices, false);
+        vector<int> traversal;
+        dfsRecursiveUtil(start, visited, traversal);
+        return traversal;
+    }
+
+    vector<int> dfsIterative(int start) {
+        vector<bool> visited(vertices, false);
+        vector<int> traversal;
+        stack<int> stk;
+
+        stk.push(start);
+        while (!stk.empty()) {
+            int node = stk.top();
+            stk.pop();
+
+            if (!visited[node]) {
+                visited[node] = true;
+                traversal.push_back(node);
+            }
+
+            for (auto& neighbor : adjList[node]) {
+                if (!visited[neighbor.first]) {
+                    stk.push(neighbor.first);
+                }
+            }
+        }
+        return traversal;
+    }
+
+    vector<int> bfs(int start) {
+        vector<bool> visited(vertices, false);
+        vector<int> traversal;
+        queue<int> q;
+
+        q.push(start);
+        visited[start] = true;
+
+        while (!q.empty()) {
+            int node = q.front();
+            q.pop();
+            traversal.push_back(node);
+
+            for (auto& neighbor : adjList[node]) {
+                if (!visited[neighbor.first]) {
+                    q.push(neighbor.first);
+                    visited[neighbor.first] = true;
+                }
+            }
+        }
+        return traversal;
+    }
+
+    bool detectCycleDirectedUtil(int node, vector<bool>& visited, vector<bool>& recStack) {
+        visited[node] = true;
+        recStack[node] = true;
+
+        for (auto& neighbor : adjList[node]) {
+            if (!visited[neighbor.first] && detectCycleDirectedUtil(neighbor.first, visited, recStack)) {
+                return true;
+            } else if (recStack[neighbor.first]) {
+                return true;
+            }
+        }
+
+        recStack[node] = false;
+        return false;
+    }
+
+    bool detectCycleDirected() {
+        vector<bool> visited(vertices, false);
+        vector<bool> recStack(vertices, false);
+
+        for (int i = 0; i < vertices; ++i) {
+            if (!visited[i] && detectCycleDirectedUtil(i, visited, recStack)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    bool detectCycleUndirectedUtil(int node, int parent, vector<bool>& visited) {
+        visited[node] = true;
+
+        for (auto& neighbor : adjList[node]) {
+            if (!visited[neighbor.first]) {
+                if (detectCycleUndirectedUtil(neighbor.first, node, visited)) {
+                    return true;
+                }
+            } else if (neighbor.first != parent) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    bool detectCycleUndirected() {
+        vector<bool> visited(vertices, false);
+        for (int i = 0; i < vertices; ++i) {
+            if (!visited[i] && detectCycleUndirectedUtil(i, -1, visited)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    vector<int> dijkstra(int source) {
+        vector<int> dist(vertices, INT_MAX);
+        dist[source] = 0;
+
+        priority_queue<pair<int, int>, vector<pair<int, int>>, greater<>> pq;
+        pq.emplace(0, source);
+
+        while (!pq.empty()) {
+            int d = pq.top().first;
+            int node = pq.top().second;
+            pq.pop();
+
+            if (d > dist[node]) continue;
+
+            for (auto& neighbor : adjList[node]) {
+                int newDist = dist[node] + neighbor.second;
+                if (newDist < dist[neighbor.first]) {
+                    dist[neighbor.first] = newDist;
+                    pq.emplace(newDist, neighbor.first);
+                }
+            }
+        }
+        return dist;
+    }
+
+    vector<vector<int>> findConnectedComponents() {
+        vector<vector<int>> components;
+        vector<bool> visited(vertices, false);
+
+        for (int i = 0; i < vertices; ++i) {
+            if (!visited[i]) {
+                vector<int> component;
+                dfsRecursiveUtil(i, visited, component);
+                components.push_back(component);
+            }
+        }
+        return components;
+    }
+
+    vector<pair<int, int>> findBridges() {
+        vector<int> disc(vertices, -1); // Thời gian khám phá
+        vector<int> low(vertices, -1); // Giá trị thấp nhất
+        vector<bool> visited(vertices, false);
+        vector<pair<int, int>> bridges;
+        int time = 0;
+
+        auto dfs = [&](int u, int parent, auto& dfsRef) -> void {
+            visited[u] = true;
+            disc[u] = low[u] = ++time;
+
+            for (auto& neighbor : adjList[u]) {
+                int v = neighbor.first;
+
+                if (!visited[v]) {
+                    dfsRef(v, u, dfsRef);
+                    low[u] = min(low[u], low[v]);
+
+                    if (low[v] > disc[u]) {
+                        bridges.emplace_back(u, v);
+                    }
+                } else if (v != parent) {
+                    low[u] = min(low[u], disc[v]);
+                }
+            }
+        };
+
+        for (int i = 0; i < vertices; ++i) {
+            if (!visited[i]) {
+                dfs(i, -1, dfs);
+            }
+        }
+
+        return bridges;
+    }
+
+    void routePlanning(int source, vector<int>& deliveryPoints) {
+        // Example using Dijkstra for routing
+        vector<int> distances = dijkstra(source);
+        for (int point : deliveryPoints) {
+            cout << "Shortest distance to point " << point << ": " << distances[point] << endl;
+        }
+    }
+};
+
+int main() {
+    // Example Usage
+    Graph g(6);
+    g.addEdgeList(0, 1, 4);
+    g.addEdgeList(0, 2, 2);
+    g.addEdgeList(1, 2, 5);
+    g.addEdgeList(1, 3, 10);
+    g.addEdgeList(2, 4, 3);
+    g.addEdgeList(4, 3, 4);
+    g.addEdgeList(3, 5, 11);
+
+    vector<int> dfsResult = g.dfsRecursive(0);
+    cout << "DFS Recursive: ";
+    for (int node : dfsResult) cout << node << " ";
+    cout << endl;
+
+    vector<int> bfsResult = g.bfs(0);
+    cout << "BFS: ";
+    for (int node : bfsResult) cout << node << " ";
+    cout << endl;
+
+    if (g.detectCycleDirected()) {
+        cout << "Cycle detected in directed graph!" << endl;
+    } else {
+        cout << "No cycle in directed graph." << endl;
+    }
+
+    if (g.detectCycleUndirected()) {
+        cout << "Cycle detected in undirected graph!" << endl;
+    } else {
+        cout << "No cycle in undirected graph." << endl;
+    }
+
+    vector<int> shortestPaths = g.dijkstra(0);
+    cout << "Shortest paths from node 0: ";
+    for (int d : shortestPaths) cout << d << " ";
+    cout << endl;
+
+    return 0;
+}
