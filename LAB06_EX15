@@ -1,0 +1,83 @@
+#include <iostream>
+#include <vector>
+#include <unordered_map>
+#include <cmath>
+#include <algorithm>
+
+using namespace std;
+
+typedef pair<int, double> Recommendation;
+
+class RecommendationSystem {
+private:
+    unordered_map<int, vector<int>> userItems;
+    vector<vector<double>> similarityMatrix;
+    int numUsers;
+
+    double calculateSimilarity(const vector<int>& user1, const vector<int>& user2) {
+        int commonItems = 0;
+        for (int i : user1) {
+            if (find(user2.begin(), user2.end(), i) != user2.end()) {
+                ++commonItems;
+            }
+        }
+        return commonItems / (sqrt(user1.size()) * sqrt(user2.size()));
+    }
+
+public:
+    RecommendationSystem(int users) : numUsers(users), similarityMatrix(users, vector<double>(users, 0)) {}
+
+    void addUserItems(int user, const vector<int>& items) {
+        userItems[user] = items;
+    }
+
+    void calculateSimilarities() {
+        for (int i = 0; i < numUsers; ++i) {
+            for (int j = i + 1; j < numUsers; ++j) {
+                similarityMatrix[i][j] = similarityMatrix[j][i] = calculateSimilarity(userItems[i], userItems[j]);
+            }
+        }
+    }
+
+    vector<Recommendation> recommendItems(int user, int numRecommendations = 3) {
+        unordered_map<int, double> recommendationScores;
+
+        for (int otherUser = 0; otherUser < numUsers; ++otherUser) {
+            if (otherUser == user) continue;
+
+            for (int item : userItems[otherUser]) {
+                if (find(userItems[user].begin(), userItems[user].end(), item) == userItems[user].end()) {
+                    recommendationScores[item] += similarityMatrix[user][otherUser];
+                }
+            }
+        }
+
+        vector<Recommendation> recommendations(recommendationScores.begin(), recommendationScores.end());
+        sort(recommendations.begin(), recommendations.end(), [](const Recommendation& a, const Recommendation& b) {
+            return a.second > b.second;
+        });
+
+        if (recommendations.size() > numRecommendations) {
+            recommendations.resize(numRecommendations);
+        }
+        return recommendations;
+    }
+};
+
+int main() {
+    RecommendationSystem rs(3);
+
+    rs.addUserItems(0, {1, 2, 3});
+    rs.addUserItems(1, {2, 3, 4});
+    rs.addUserItems(2, {3, 4, 5});
+
+    rs.calculateSimilarities();
+
+    vector<Recommendation> recommendations = rs.recommendItems(0);
+    cout << "Recommendations for user 0:" << endl;
+    for (auto& [item, score] : recommendations) {
+        cout << "Item: " << item << ", Score: " << score << endl;
+    }
+
+    return 0;
+}
